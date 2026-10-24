@@ -26,9 +26,16 @@ n_sims  <- 1000        # simulated experiments in Tab 2
 # ---- small helpers ----------------------------------------------------------
 fmt_p <- function(p) if (p < 0.001) "< 0.001" else formatC(p, digits = 3, format = "f")
 
-big_num <- function(txt, col = "#222") {
-  tags$p(style = paste0("font-size:28px;font-weight:700;color:", col, ";margin:0;"), txt)
+# big number; optional small grey note on the same line (used for F degrees of freedom)
+big_num <- function(txt, col = "#222", note = NULL) {
+  tags$p(style = paste0("font-size:28px;font-weight:700;color:", col, ";margin:0;"), txt,
+         if (!is.null(note))
+           tags$span(style = "font-size:13px;font-weight:400;color:#777;", note))
 }
+
+df_note <- function(df1, df2) paste0("df = ", df1, ", ", df2)
+
+f_lab <- function(df1, df2) paste0("F(", df1, ", ", df2, ")")
 
 stat_label <- function(txt) {
   p(txt, style = "color:#555;font-size:13px;margin-bottom:2px;")
@@ -178,8 +185,8 @@ ui <- fluidPage(
         column(
           width = 8,
           fluidRow(
-            column(7, plotOutput("t1_dots", height = "380px")),
-            column(5, plotOutput("t1_bars", height = "380px"))
+            column(7, plotOutput("t1_dots", height = "340px")),
+            column(5, plotOutput("t1_bars", height = "340px"))
           ),
           wellPanel(
             fluidRow(
@@ -283,9 +290,9 @@ server <- function(input, output, session) {
     a  <- t1_res()
     gx <- 1:3
     lim_half <- max(6, 3 + 3.2 * input$t1_sd)   # moves with sliders, not with Resample
-    par(mar = c(4.5, 4.5, 3, 1), cex.axis = 1.1, cex.lab = 1.2, cex.main = 1.2)
+    par(mar = c(2.5, 4.5, 3, 1), cex.axis = 1.1, cex.lab = 1.2, cex.main = 1.2)
     plot(NULL, xlim = c(0.4, 3.75), ylim = base_mu + c(-1, 1) * lim_half,
-         xaxt = "n", xlab = "Habitat", ylab = "Body temperature (\u00b0C)",
+         xaxt = "n", xlab = "", ylab = "Body temperature (\u00b0C)",
          main = "Each lizard, its group mean, and the grand mean", bty = "l")
     axis(1, at = gx, labels = paste("Habitat", grp_lab))
     abline(h = a$G, col = "gray45", lty = 2, lwd = 1.8)
@@ -310,11 +317,11 @@ server <- function(input, output, session) {
     a    <- t1_res()
     vals <- c(a$msb, a$msw)
     ytop <- max(vals) * 1.25
-    par(mar = c(4.5, 4.5, 3, 1), cex.axis = 1.1, cex.lab = 1.2, cex.main = 1.2)
+    par(mar = c(3.2, 4.5, 4, 1), cex.axis = 1.1, cex.lab = 1.2, cex.main = 1.2)
     bp <- barplot(vals, col = c(orange, teal), border = "white",
                   names.arg = c("", ""),
-                  ylim = c(0, ytop), ylab = "Variance estimate (mean square)",
-                  main = "Signal compared with noise")
+                  ylim = c(0, ytop), ylab = "Variance estimate (mean square)")
+    title(main = "Signal compared with noise", line = 2.2)
     mtext(expression(MS[groups], MS[error]), side = 1, at = bp, line = 0.7, cex = 1.15)
     mtext(c("between (signal)", "within (noise)"), side = 1, at = bp, line = 1.9,
           cex = 0.95, col = "gray30")
@@ -322,15 +329,18 @@ server <- function(input, output, session) {
     text(mean(bp), a$msw, "noise level", pos = 3, cex = 0.9, col = "gray35")
     text(bp, vals + ytop * 0.04, labels = formatC(vals, digits = 2, format = "f"),
          cex = 1.2, font = 2)
-    mtext(paste0("F = ", formatC(a$F, digits = 2, format = "f"),
+    mtext(paste0(f_lab(a$df1, a$df2), " = ", formatC(a$F, digits = 2, format = "f"),
                  "  (the orange bar is ", formatC(a$F, digits = 1, format = "f"),
                  "\u00d7 the teal bar)"),
-          side = 1, line = 3.3, cex = 0.95, col = "gray25")
+          side = 3, line = 0.6, cex = 0.95, col = "gray25")
   })
   
   output$t1_msb <- renderUI(big_num(formatC(t1_res()$msb, digits = 2, format = "f"), orange))
   output$t1_msw <- renderUI(big_num(formatC(t1_res()$msw, digits = 2, format = "f"), teal))
-  output$t1_F   <- renderUI(big_num(formatC(t1_res()$F,   digits = 2, format = "f"), blue))
+  output$t1_F   <- renderUI({
+    a <- t1_res()
+    big_num(formatC(a$F, digits = 2, format = "f"), blue, df_note(a$df1, a$df2))
+  })
   output$t1_p   <- renderUI({
     p <- t1_res()$p
     big_num(fmt_p(p), if (p < 0.05) red else "#222")
@@ -363,8 +373,8 @@ server <- function(input, output, session) {
       "The group means are spread out with a between-group variance (MS<sub>groups</sub>) of <b>",
       formatC(a$msb, digits = 2, format = "f"), "</b>, while individual lizards vary ",
       "around their own group mean with a within-group variance (MS<sub>error</sub>) of <b>",
-      formatC(a$msw, digits = 2, format = "f"), "</b>. The ratio F = <b>",
-      formatC(a$F, digits = 2, format = "f"), "</b>, and ", sig_txt, " ", null_txt
+      formatC(a$msw, digits = 2, format = "f"), "</b>. The ratio ", f_lab(a$df1, a$df2),
+      " = <b>", formatC(a$F, digits = 2, format = "f"), "</b>, and ", sig_txt, " ", null_txt
     ))
   })
   
@@ -451,18 +461,20 @@ server <- function(input, output, session) {
     plot(h, freq = FALSE, col = bar_col, border = "white",
          xlim = c(0, xmax), ylim = c(0, dens_max * 1.15),
          xlab = "F ratio", ylab = "Density",
-         main = paste0("F from ", n_sims, " repeated studies"))
+         main = paste0(f_lab(r$df1, r$df2), " from ", n_sims, " repeated studies"))
     box(bty = "l")
     xs <- seq(0.02, xmax, 0.02)
     lines(xs, df(xs, r$df1, r$df2), col = blue, lwd = 2.5)
     abline(v = r$crit, col = red, lwd = 2, lty = 2)
+    mtext(formatC(r$crit, digits = 2, format = "f"), side = 3, at = r$crit,
+          line = 0.1, cex = 0.9, col = red, font = 2)
     abline(v = 1, col = "gray45", lwd = 1.5, lty = 3)
     leg_pos <- if (median(r$F) > xmax / 2) "topleft" else "topright"   # keep clear of bars
     legend(leg_pos, bty = "n", cex = 0.85, inset = c(0.04, 0),
            lty = c(1, 2, 3, NA, NA), lwd = c(2.5, 2, 1.5, NA, NA),
            pch = c(NA, NA, NA, 15, 15), pt.cex = 1.8,
            col = c(blue, red, "gray45", adjustcolor(teal, 0.70), adjustcolor(orange, 0.85)),
-           legend = c("Expected F if Scenario 1 is true",
+           legend = c(paste0("Expected ", f_lab(r$df1, r$df2), " if Scenario 1 is true"),
                       "Critical F (\u03b1 = 0.05)", "F = 1",
                       "Not significant", "Significant (p < 0.05)"))
     if (any(r$F > xmax))
@@ -470,22 +482,33 @@ server <- function(input, output, session) {
             side = 1, line = 3.6, adj = 1, cex = 0.8, col = "gray50")
   })
   
-  output$t2_medF <- renderUI(big_num(formatC(mean(t2_res()$F), digits = 2, format = "f"), blue))
-  output$t2_crit <- renderUI(big_num(formatC(t2_res()$crit, digits = 2, format = "f"), red))
+  output$t2_medF <- renderUI({
+    r <- t2_res()
+    big_num(formatC(mean(r$F), digits = 2, format = "f"), blue, df_note(r$df1, r$df2))
+  })
+  output$t2_crit <- renderUI({
+    r <- t2_res()
+    big_num(formatC(r$crit, digits = 2, format = "f"), red, df_note(r$df1, r$df2))
+  })
   output$t2_pct  <- renderUI({
     r <- t2_res(); pct <- 100 * mean(r$F >= r$crit)
     big_num(paste0(formatC(pct, digits = 1, format = "f"), "%"), orange)
   })
   output$t2_nullF <- renderUI({
     r <- t2_res()                               # mean of an F distribution = df2 / (df2 - 2)
-    big_num(formatC(r$df2 / (r$df2 - 2), digits = 2, format = "f"), "gray45")
+    big_num(formatC(r$df2 / (r$df2 - 2), digits = 2, format = "f"), "gray45", df_note(r$df1, r$df2))
   })
   
   output$t2_verdict <- renderUI({
     r   <- t2_res()
     pct <- formatC(100 * mean(r$F >= r$crit), digits = 1, format = "f")
     med <- formatC(mean(r$F), digits = 2, format = "f")
-    crit <- formatC(r$crit, digits = 2, format = "f")
+    crit <- paste0(f_lab(r$df1, r$df2), " = ", formatC(r$crit, digits = 2, format = "f"))
+    df_txt <- paste0(
+      " With ", r$n, " lizards per habitat the degrees of freedom are ", r$df1,
+      " for groups (3 habitats \u2212 1) and ", r$df2, " for error (", 3 * r$n,
+      " lizards \u2212 3 habitats). Larger samples give a slightly lower critical value, ",
+      "but the change is small once there are more than about 20 error degrees of freedom.")
     if (r$eff == 0) {
       HTML(paste0(
         "All three habitats come from the same population, yet the sample means still ",
@@ -495,7 +518,7 @@ server <- function(input, output, session) {
         "</b>. These are ", strong("false positives"), ": studies that would wrongly ",
         "conclude the habitats differ. By design this happens about 5% of the time. ",
         "Notice that the teal bars follow the blue curve: that curve is the F distribution, ",
-        "and it is what the p-value is calculated from."
+        "and it is what the p-value is calculated from.", df_txt
       ))
     } else {
       HTML(paste0(
@@ -505,7 +528,7 @@ server <- function(input, output, session) {
         "%</b> of studies cross the critical value of <b>", crit, "</b> and correctly ",
         "detect the difference; this percentage is the study's ", strong("power"), ". ",
         "The remaining studies miss a real effect. Increase n or reduce \u03c3 and watch ",
-        "power rise; shrink the difference and watch the two distributions merge."
+        "power rise; shrink the difference and watch the two distributions merge.", df_txt
       ))
     }
   })
