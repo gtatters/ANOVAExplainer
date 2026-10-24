@@ -58,6 +58,23 @@ anova_parts <- function(ylist) {
        p = pf(Fv, df1, df2, lower.tail = FALSE))
 }
 
+# Draws a base-R plot as a PNG image. Safari-safe stand-in for renderPlot(),
+# which currently fails in Safari under Shinylive. Use with imageOutput().
+render_base <- function(id, session, draw) {
+  renderImage({
+    cd <- session$clientData
+    w  <- cd[[paste0("output_", id, "_width")]]
+    h  <- cd[[paste0("output_", id, "_height")]]
+    req(w > 0, h > 0)
+    pr <- cd$pixelratio
+    if (is.null(pr)) pr <- 1
+    f <- tempfile(fileext = ".png")
+    png(f, width = w * pr, height = h * pr, res = 72 * pr)
+    tryCatch(draw(), finally = dev.off())
+    list(src = f, contentType = "image/png", width = w, height = h)
+  }, deleteFile = TRUE)
+}
+
 # ================================ UI =========================================
 ui <- fluidPage(
   titlePanel("ANOVA in a Nutshell: Signal versus Noise",
@@ -187,8 +204,8 @@ ui <- fluidPage(
         column(
           width = 8,
           fluidRow(
-            column(7, plotOutput("t1_dots", height = "340px")),
-            column(5, plotOutput("t1_bars", height = "340px"))
+            column(7, imageOutput("t1_dots", height = "340px")),
+            column(5, imageOutput("t1_bars", height = "340px"))
           ),
           wellPanel(
             fluidRow(
@@ -246,8 +263,8 @@ ui <- fluidPage(
         column(
           width = 8,
           fluidRow(
-            column(6, plotOutput("t2_pop",  height = "380px")),
-            column(6, plotOutput("t2_hist", height = "380px"))
+            column(6, imageOutput("t2_pop",  height = "380px")),
+            column(6, imageOutput("t2_hist", height = "380px"))
           ),
           wellPanel(
             fluidRow(
@@ -288,7 +305,7 @@ server <- function(input, output, session) {
     a
   })
   
-  output$t1_dots <- renderPlot({
+  output$t1_dots <- render_base("t1_dots", session, function() {
     a  <- t1_res()
     gx <- 1:3
     lim_half <- max(6, 3 + 3.2 * input$t1_sd)   # moves with sliders, not with Resample
@@ -318,7 +335,7 @@ server <- function(input, output, session) {
                       "Group mean", "Grand mean"))
   })
   
-  output$t1_bars <- renderPlot({
+  output$t1_bars <- render_base("t1_bars", session, function() {
     a    <- t1_res()
     vals <- c(a$msb, a$msw)
     ytop <- max(vals) * 1.25
@@ -416,7 +433,7 @@ server <- function(input, output, session) {
          mu = mu, sd = sd, n = n, eff = eff, gm1 = gm[1, ])
   })
   
-  output$t2_pop <- renderPlot({
+  output$t2_pop <- render_base("t2_pop", session, function() {
     r  <- t2_res()
     xs <- seq(base_mu - 12, base_mu + 12, length.out = 400)   # fixed axis
     cols <- c(teal, blue, orange)
@@ -449,7 +466,7 @@ server <- function(input, output, session) {
            legend = "Sample means (one study)")
   })
   
-  output$t2_hist <- renderPlot({
+  output$t2_hist <- render_base("t2_hist", session, function() {
     r    <- t2_res()
     # x-axis grows with the data: covers 99% of F values, rounded up to a multiple of 5
     xmax <- max(10, 5 * ceiling(quantile(r$F, 0.99) / 5))
