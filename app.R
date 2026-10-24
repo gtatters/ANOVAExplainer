@@ -168,7 +168,9 @@ ui <- fluidPage(
               strong("within-group"), " spread, or noise."),
             p(span(style = paste0("color:", orange, ";font-weight:bold;"), "Orange bars"),
               " show how far each group mean is from the grand mean: the ",
-              strong("between-group"), " spread, or signal."),
+              strong("between-group"), " spread, or signal. Every lizard in a habitat ",
+              "shares the same orange deviation, so each bar counts n times (\u00d7n). ",
+              "This is why MS", tags$sub("groups"), " grows when n grows."),
             hr(),
             sliderInput("t1_eff", "Difference among true habitat means (\u00b0C):",
                         value = 1.0, min = -3, max = 3, step = 0.1),
@@ -302,8 +304,11 @@ server <- function(input, output, session) {
         segments(xs, a$y[[g]], xs, a$gm[g], col = adjustcolor(teal, 0.75), lwd = 1.4)
       points(xs, a$y[[g]], pch = 19, col = adjustcolor("gray30", 0.70), cex = 1.0)
       segments(gx[g] - 0.36, a$gm[g], gx[g] + 0.36, a$gm[g], col = "black", lwd = 3.5)
-      if (input$t1_show_b)
+      if (input$t1_show_b) {
         segments(gx[g] + 0.45, a$gm[g], gx[g] + 0.45, a$G, col = orange, lwd = 7, lend = 1)
+        text(gx[g] + 0.45, (a$gm[g] + a$G) / 2, paste0("\u00d7", a$n),
+             pos = 4, offset = 0.4, col = orange, cex = 0.9, font = 2)   # counts n times
+      }
     }
     legend("topleft", bty = "n", cex = 0.9,
            lty = c(1, 1, 1, 2), lwd = c(1.4, 6, 3.5, 1.8),
