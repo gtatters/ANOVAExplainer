@@ -251,7 +251,7 @@ ui <- fluidPage(
             conditionalPanel(
               condition = "input.t2_scen == 'alt'",
               sliderInput("t2_eff", "Difference among true habitat means (\u00b0C):",
-                          value = 1.0, min = 0.1, max = 3, step = 0.1)
+                          value = 1.0, min = -3.0, max = 3, step = 0.1)
             ),
             sliderInput("t2_sd", "Within-group spread, \u03c3 (\u00b0C):",
                         value = 1.5, min = 0.3, max = 3, step = 0.1),
